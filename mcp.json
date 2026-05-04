@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "dsql-schema-converter": {
+      "command": "node",
+      "args": ["mcp-server/src/index.js"],
+      "env": {},
+      "disabled": false
+    }
+  }
+}

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSQL Schema Converter</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e1e4ed;
+      --text-muted: #8b8fa3;
+      --accent: #6c63ff;
+      --accent-hover: #7b73ff;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --error: #f87171;
+      --code-bg: #141620;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1 span.badge {
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--accent);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .toolbar {
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .toolbar button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #363a4a; }
+
+    .toolbar select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--code-bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .toolbar .status {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: calc(100vh - 120px);
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-header .copy-btn {
+      font-size: 11px;
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .panel-header .copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+    textarea {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      background: var(--code-bg);
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      tab-size: 2;
+    }
+
+    textarea::placeholder { color: #4a4d5e; }
+
+    .output-area {
+      flex: 1;
+      overflow: auto;
+      background: var(--code-bg);
+    }
+
+    .output-area pre {
+      padding: 16px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .report-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    .report-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+
+    .summary-card .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .summary-card .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 14px;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .empty-state .icon { font-size: 32px; opacity: 0.5; }
+
+    /* Syntax highlighting (minimal) */
+    .sql-keyword { color: #c792ea; }
+    .sql-type { color: #82aaff; }
+    .sql-string { color: #c3e88d; }
+    .sql-comment { color: #546e7a; }
+    .sql-number { color: #f78c6c; }
+    .sql-function { color: #ffcb6b; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>DSQL Schema Converter <span class="badge">Kiro Power</span></h1>
+      <p>Paste PostgreSQL DDL on the left → get Aurora DSQL-compatible SQL on the right</p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <select id="dialect">
+      <option value="postgresql" selected>PostgreSQL</option>
+      <option value="mysql" disabled>MySQL (coming soon)</option>
+      <option value="cockroachdb" disabled>CockroachDB (coming soon)</option>
+      <option value="spanner" disabled>Spanner (coming soon)</option>
+    </select>
+    <button class="btn-primary" id="convertBtn" onclick="convert()">Convert to DSQL</button>
+    <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="main">
+    <!-- Input panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Source Schema</span>
+      </div>
+      <textarea id="input" placeholder="Paste your PostgreSQL CREATE TABLE, CREATE INDEX, CREATE FUNCTION statements here...
+
+Example:
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email TEXT UNIQUE,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);"></textarea>
+    </div>
+
+    <!-- Output panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>DSQL Output</span>
+        <button class="copy-btn" onclick="copyOutput()">Copy</button>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('ddl')">DDL</div>
+        <div class="tab" onclick="switchTab('report')">Report</div>
+        <div class="tab" onclick="switchTab('summary')">Summary</div>
+      </div>
+      <div class="output-area">
+        <div id="tab-ddl" class="tab-content active">
+          <div class="empty-state" id="ddl-empty">
+            <div class="icon">→</div>
+            <div>Converted DDL will appear here</div>
+          </div>
+          <pre id="ddl-output" style="display:none"></pre>
+        </div>
+        <div id="tab-report" class="tab-content">
+          <div class="empty-state" id="report-empty">
+            <div class="icon">📋</div>
+            <div>Conversion report will appear here</div>
+          </div>
+          <div id="report-output" style="display:none"></div>
+        </div>
+        <div id="tab-summary" class="tab-content">
+          <div class="empty-state" id="summary-empty">
+            <div class="icon">📊</div>
+            <div>Summary will appear here</div>
+          </div>
+          <div id="summary-output" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load the converter modules -->
+  <script type="module">
+    import { parseSQL } from './lib/sql-parser.js';
+    import { convertSchema, formatReport } from './lib/converter.js';
+
+    // Expose to global scope for onclick handlers
+    window._parseSQL = parseSQL;
+    window._convertSchema = convertSchema;
+    window._formatReport = formatReport;
+  </script>
+
+  <script>
+    function convert() {
+      const input = document.getElementById('input').value.trim();
+      if (!input) { setStatus('No input provided', 'error'); return; }
+
+      const dialect = document.getElementById('dialect').value;
+      const btn = document.getElementById('convertBtn');
+      btn.disabled = true;
+      setStatus('Converting...', '');
+
+      try {
+        const start = performance.now();
+        const parsed = window._parseSQL(input);
+        const { ddl, notes, summary } = window._convertSchema(parsed, dialect);
+        const elapsed = (performance.now() - start).toFixed(0);
+
+        // DDL tab
+        document.getElementById('ddl-empty').style.display = 'none';
+        const ddlPre = document.getElementById('ddl-output');
+        ddlPre.style.display = 'block';
+        ddlPre.innerHTML = highlightSQL(ddl);
+
+        // Report tab
+        document.getElementById('report-empty').style.display = 'none';
+        const reportDiv = document.getElementById('report-output');
+        reportDiv.style.display = 'block';
+        reportDiv.innerHTML = renderReportTable(notes);
+
+        // Summary tab
+        document.getElementById('summary-empty').style.display = 'none';
+        const summaryDiv = document.getElementById('summary-output');
+        summaryDiv.style.display = 'block';
+        summaryDiv.innerHTML = renderSummary(summary);
+
+        setStatus(`Converted in ${elapsed}ms — ${summary.total_conversions} actions`, 'success');
+      } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function loadSample() {
+      document.getElementById('input').value = `-- Sample PostgreSQL schema
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TYPE user_role AS ENUM ('admin', 'editor', 'viewer');
+
+CREATE SEQUENCE order_id_seq START 1;
+
+CREATE TABLE users (
+  id BIGSERIAL PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  role user_role DEFAULT 'viewer',
+  profile JSONB DEFAULT '{}',
+  ip_address INET,
+  balance NUMERIC(12,2) DEFAULT 0.00,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE posts (
+  id BIGSERIAL PRIMARY KEY,
+  author_id BIGINT NOT NULL REFERENCES users(id),
+  title VARCHAR(255) NOT NULL,
+  body TEXT,
+  tags TEXT[] DEFAULT '{}',
+  published BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE comments (
+  id BIGSERIAL PRIMARY KEY,
+  post_id BIGINT NOT NULL,
+  author_id BIGINT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (author_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_posts_author ON posts (author_id);
+CREATE INDEX idx_posts_tags ON posts USING gin (tags);
+CREATE UNIQUE INDEX idx_users_email ON users (email);
+
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_users_updated
+  BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE OR REPLACE FUNCTION validate_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.balance < 0 THEN
+    RAISE EXCEPTION 'balance cannot be negative';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_balance
+  BEFORE INSERT ON users
+  FOR EACH ROW EXECUTE FUNCTION validate_balance();
+
+CREATE MATERIALIZED VIEW active_users AS
+  SELECT * FROM users WHERE is_active = TRUE;
+
+CREATE VIEW recent_posts AS
+  SELECT * FROM posts WHERE created_at > now() - interval '7 days';`;
+    }
+
+    function clearAll() {
+      document.getElementById('input').value = '';
+      document.getElementById('ddl-empty').style.display = 'flex';
+      document.getElementById('ddl-output').style.display = 'none';
+      document.getElementById('report-empty').style.display = 'flex';
+      document.getElementById('report-output').style.display = 'none';
+      document.getElementById('summary-empty').style.display = 'flex';
+      document.getElementById('summary-output').style.display = 'none';
+      setStatus('', '');
+    }
+
+    function copyOutput() {
+      const ddl = document.getElementById('ddl-output').textContent;
+      if (ddl) {
+        navigator.clipboard.writeText(ddl);
+        setStatus('Copied to clipboard', 'success');
+        setTimeout(() => setStatus('', ''), 2000);
+      }
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.style.color = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--text-muted)';
+    }
+
+    function highlightSQL(sql) {
+      return sql
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/(--[^\n]*)/g, '<span class="sql-comment">$1</span>')
+        .replace(/\b(CREATE|TABLE|INDEX|ASYNC|VIEW|FUNCTION|SEQUENCE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|FROM|WHERE|SELECT|EXISTS|PRIMARY|KEY|UNIQUE|CHECK|CONSTRAINT|NOT|NULL|DEFAULT|RETURNS|LANGUAGE|AS|ALTER|ADD|DROP|IF|ON|COLLATE|CACHE|USING)\b/gi, '<span class="sql-keyword">$1</span>')
+        .replace(/\b(bigint|integer|smallint|text|varchar|numeric|boolean|timestamptz|timestamp|date|time|uuid|bytea|real|interval|void)\b/gi, '<span class="sql-type">$1</span>')
+        .replace(/'([^']*)'/g, "'<span class=\"sql-string\">$1</span>'")
+        .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>')
+        .replace(/\b(gen_random_uuid|now|nextval|coalesce|format)\b/gi, '<span class="sql-function">$1</span>');
+    }
+
+    function renderReportTable(notes) {
+      if (notes.length === 0) return '<div class="empty-state"><div>No conversion actions needed</div></div>';
+      let html = '<table class="report-table"><thead><tr><th>Object</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+      for (const n of notes) {
+        html += `<tr><td><code>${esc(n.object)}</code></td><td>${esc(n.action)}</td><td>${esc(n.details)}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function renderSummary(s) {
+      const cards = [
+        { value: s.tables_converted, label: 'Tables' },
+        { value: s.indexes_converted, label: 'Indexes (ASYNC)' },
+        { value: s.sequences_replaced, label: 'Sequences' },
+        { value: s.fk_validation_functions, label: 'FK Functions' },
+        { value: s.enums_to_checks, label: 'ENUM → CHECK' },
+        { value: s.triggers_replaced, label: 'Triggers → SQL' },
+        { value: s.views_converted, label: 'Views' },
+        { value: s.materialized_views_demoted, label: 'Mat. Views → Views' },
+        { value: s.functions_preserved, label: 'SQL Funcs Preserved' },
+        { value: (s.functions_transpiled || 0), label: 'PL/pgSQL Transpiled' },
+        { value: (s.functions_stubbed || 0), label: 'Stubs (unconvertible)' },
+        { value: s.total_conversions, label: 'Total Actions' },
+      ];
+      let html = '<div class="summary-grid">';
+      for (const c of cards) {
+        html += `<div class="summary-card"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
