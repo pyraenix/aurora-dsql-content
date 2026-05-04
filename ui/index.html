@@ -17,265 +17,146 @@
       --warning: #fbbf24;
       --error: #f87171;
       --code-bg: #141620;
+      --diff-add-bg: rgba(52, 211, 153, 0.08);
+      --diff-add-border: rgba(52, 211, 153, 0.3);
+      --diff-remove-bg: rgba(248, 113, 113, 0.08);
+      --diff-remove-border: rgba(248, 113, 113, 0.3);
+      --diff-change-bg: rgba(251, 191, 36, 0.08);
+      --diff-change-border: rgba(251, 191, 36, 0.3);
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
+      background: var(--bg); color: var(--text); min-height: 100vh;
     }
-
     header {
-      padding: 20px 32px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 16px 32px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
     }
-
-    header h1 {
-      font-size: 20px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    header h1 span.badge {
-      font-size: 11px;
-      font-weight: 500;
-      background: var(--accent);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 10px;
-    }
-
-    header p {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
+    header h1 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+    header h1 .badge { font-size: 10px; font-weight: 500; background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; }
+    header p { color: var(--text-muted); font-size: 12px; }
     .toolbar {
-      padding: 12px 32px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
+      padding: 10px 32px; display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border); background: var(--surface);
     }
-
-    .toolbar button {
-      padding: 8px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
+    .toolbar button { padding: 7px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: var(--accent); color: white; }
     .btn-primary:hover { background: var(--accent-hover); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn-secondary {
-      background: var(--border);
-      color: var(--text);
-    }
+    .btn-secondary { background: var(--border); color: var(--text); }
     .btn-secondary:hover { background: #363a4a; }
+    .toolbar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); color: var(--text); font-size: 12px; }
+    .toolbar .status { margin-left: auto; font-size: 11px; color: var(--text-muted); }
 
-    .toolbar select {
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--code-bg);
-      color: var(--text);
-      font-size: 13px;
-    }
-
-    .toolbar .status {
-      margin-left: auto;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      height: calc(100vh - 120px);
-    }
-
-    .panel {
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--border);
-      overflow: hidden;
-    }
-
+    .main { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 105px); }
+    .panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
     .panel:last-child { border-right: none; }
-
     .panel-header {
-      padding: 10px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 8px 16px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted); background: var(--surface);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;
     }
-
     .panel-header .copy-btn {
-      font-size: 11px;
-      padding: 3px 10px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
+      font-size: 10px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+      background: transparent; color: var(--text-muted); cursor: pointer;
     }
     .panel-header .copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
-
     textarea {
-      flex: 1;
-      padding: 16px;
-      border: none;
-      background: var(--code-bg);
-      color: var(--text);
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      resize: none;
-      outline: none;
-      tab-size: 2;
+      flex: 1; padding: 14px; border: none; background: var(--code-bg); color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6;
+      resize: none; outline: none; tab-size: 2;
     }
-
     textarea::placeholder { color: #4a4d5e; }
-
-    .output-area {
-      flex: 1;
-      overflow: auto;
-      background: var(--code-bg);
-    }
-
+    .output-area { flex: 1; overflow: auto; background: var(--code-bg); }
     .output-area pre {
-      padding: 16px;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+      padding: 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+      line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;
     }
-
-    .tabs {
-      display: flex;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-    }
-
+    .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
     .tab {
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.15s;
+      padding: 7px 14px; font-size: 11px; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
     }
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
+    /* Report table */
+    .report-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .report-table th { text-align: left; padding: 7px 10px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; position: sticky; top: 0; }
+    .report-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+    /* Summary cards */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 14px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+    .summary-card .value { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .summary-card .label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Diff view */
+    .diff-container { padding: 14px; }
+    .diff-section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .diff-section-header { padding: 6px 12px; font-size: 11px; font-weight: 600; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .diff-badge { font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+    .diff-badge.removed { background: var(--diff-remove-bg); color: var(--error); border: 1px solid var(--diff-remove-border); }
+    .diff-badge.added { background: var(--diff-add-bg); color: var(--success); border: 1px solid var(--diff-add-border); }
+    .diff-badge.changed { background: var(--diff-change-bg); color: var(--warning); border: 1px solid var(--diff-change-border); }
+    .diff-badge.kept { background: rgba(108,99,255,0.1); color: var(--accent); border: 1px solid rgba(108,99,255,0.3); }
+    .diff-body { display: grid; grid-template-columns: 1fr 1fr; }
+    .diff-side { padding: 8px 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+    .diff-left { background: var(--diff-remove-bg); border-right: 1px solid var(--border); }
+    .diff-right { background: var(--diff-add-bg); }
+    .diff-full { grid-column: 1 / -1; padding: 8px 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+    .diff-full.added-bg { background: var(--diff-add-bg); }
+    .diff-full.removed-bg { background: var(--diff-remove-bg); }
+
+    /* Execution plan */
+    .plan-container { padding: 14px; }
+    .plan-step { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .plan-step-header {
+      padding: 6px 12px; font-size: 11px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .plan-step-header .step-num { font-weight: 700; color: var(--accent); margin-right: 8px; }
+    .plan-step-header .step-type { color: var(--text-muted); font-size: 10px; }
+    .plan-step-header .step-copy {
+      font-size: 10px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+      background: transparent; color: var(--text-muted); cursor: pointer;
+    }
+    .plan-step-header .step-copy:hover { color: var(--text); border-color: var(--text-muted); }
+    .plan-step-body {
+      padding: 8px 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+      line-height: 1.5; white-space: pre-wrap; background: var(--code-bg);
     }
 
-    .report-table th {
-      text-align: left;
-      padding: 8px 12px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      color: var(--text-muted);
-      font-weight: 600;
-      position: sticky;
-      top: 0;
+    /* Migration guide */
+    .guide-container {
+      padding: 14px; font-size: 13px; line-height: 1.7;
     }
+    .guide-container h2 { font-size: 16px; margin: 20px 0 8px 0; color: var(--accent); }
+    .guide-container h2:first-child { margin-top: 0; }
+    .guide-container h3 { font-size: 13px; margin: 14px 0 6px 0; color: var(--text); }
+    .guide-container p { margin: 6px 0; color: var(--text-muted); }
+    .guide-container code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 12px; color: var(--warning); }
+    .guide-container ul { margin: 6px 0 6px 20px; }
+    .guide-container li { margin: 3px 0; color: var(--text-muted); }
+    .guide-container .guide-note { background: var(--surface); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0; font-size: 12px; }
 
-    .report-table td {
-      padding: 6px 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
+    .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 13px; flex-direction: column; gap: 8px; }
+    .empty-state .icon { font-size: 28px; opacity: 0.5; }
 
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
-      padding: 16px;
-    }
-
-    .summary-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
-    }
-
-    .summary-card .value {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .summary-card .label {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .empty-state {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--text-muted);
-      font-size: 14px;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .empty-state .icon { font-size: 32px; opacity: 0.5; }
-
-    /* Syntax highlighting (minimal) */
-    .sql-keyword { color: #c792ea; }
-    .sql-type { color: #82aaff; }
-    .sql-string { color: #c3e88d; }
-    .sql-comment { color: #546e7a; }
-    .sql-number { color: #f78c6c; }
-    .sql-function { color: #ffcb6b; }
+    .sql-keyword { color: #c792ea; } .sql-type { color: #82aaff; } .sql-string { color: #c3e88d; }
+    .sql-comment { color: #546e7a; } .sql-number { color: #f78c6c; } .sql-function { color: #ffcb6b; }
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>DSQL Schema Converter <span class="badge">Kiro Power</span></h1>
-      <p>Paste PostgreSQL DDL on the left → get Aurora DSQL-compatible SQL on the right</p>
+      <p>Paste PostgreSQL DDL → get Aurora DSQL-compatible SQL with diff view, execution plan, and migration guide</p>
     </div>
   </header>
-
   <div class="toolbar">
     <select id="dialect">
       <option value="postgresql" selected>PostgreSQL</option>
@@ -288,118 +169,415 @@
     <button class="btn-secondary" onclick="clearAll()">Clear</button>
     <span class="status" id="status"></span>
   </div>
-
   <div class="main">
-    <!-- Input panel -->
     <div class="panel">
-      <div class="panel-header">
-        <span>Source Schema</span>
-      </div>
-      <textarea id="input" placeholder="Paste your PostgreSQL CREATE TABLE, CREATE INDEX, CREATE FUNCTION statements here...
-
-Example:
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  email TEXT UNIQUE,
-  metadata JSONB,
-  created_at TIMESTAMPTZ DEFAULT now()
-);"></textarea>
+      <div class="panel-header"><span>Source Schema (PostgreSQL)</span></div>
+      <textarea id="input" placeholder="Paste your PostgreSQL DDL here..."></textarea>
     </div>
-
-    <!-- Output panel -->
     <div class="panel">
       <div class="panel-header">
         <span>DSQL Output</span>
-        <button class="copy-btn" onclick="copyOutput()">Copy</button>
+        <button class="copy-btn" onclick="copyOutput()">Copy DDL</button>
       </div>
       <div class="tabs">
-        <div class="tab active" onclick="switchTab('ddl')">DDL</div>
-        <div class="tab" onclick="switchTab('report')">Report</div>
-        <div class="tab" onclick="switchTab('summary')">Summary</div>
+        <div class="tab active" onclick="switchTab(this,'ddl')">DDL</div>
+        <div class="tab" onclick="switchTab(this,'diff')">Diff View</div>
+        <div class="tab" onclick="switchTab(this,'plan')">Execution Plan</div>
+        <div class="tab" onclick="switchTab(this,'guide')">Migration Guide</div>
+        <div class="tab" onclick="switchTab(this,'report')">Report</div>
+        <div class="tab" onclick="switchTab(this,'summary')">Summary</div>
       </div>
       <div class="output-area">
-        <div id="tab-ddl" class="tab-content active">
-          <div class="empty-state" id="ddl-empty">
-            <div class="icon">→</div>
-            <div>Converted DDL will appear here</div>
-          </div>
-          <pre id="ddl-output" style="display:none"></pre>
-        </div>
-        <div id="tab-report" class="tab-content">
-          <div class="empty-state" id="report-empty">
-            <div class="icon">📋</div>
-            <div>Conversion report will appear here</div>
-          </div>
-          <div id="report-output" style="display:none"></div>
-        </div>
-        <div id="tab-summary" class="tab-content">
-          <div class="empty-state" id="summary-empty">
-            <div class="icon">📊</div>
-            <div>Summary will appear here</div>
-          </div>
-          <div id="summary-output" style="display:none"></div>
-        </div>
+        <div id="tab-ddl" class="tab-content active"><div class="empty-state" id="ddl-empty"><div class="icon">→</div><div>Converted DDL will appear here</div></div><pre id="ddl-output" style="display:none"></pre></div>
+        <div id="tab-diff" class="tab-content"><div class="empty-state" id="diff-empty"><div class="icon">⇄</div><div>Before/after diff will appear here</div></div><div id="diff-output" style="display:none"></div></div>
+        <div id="tab-plan" class="tab-content"><div class="empty-state" id="plan-empty"><div class="icon">▶</div><div>Step-by-step execution plan will appear here</div></div><div id="plan-output" style="display:none"></div></div>
+        <div id="tab-guide" class="tab-content"><div class="empty-state" id="guide-empty"><div class="icon">📖</div><div>Migration guide will appear here</div></div><div id="guide-output" style="display:none"></div></div>
+        <div id="tab-report" class="tab-content"><div class="empty-state" id="report-empty"><div class="icon">📋</div><div>Conversion report will appear here</div></div><div id="report-output" style="display:none"></div></div>
+        <div id="tab-summary" class="tab-content"><div class="empty-state" id="summary-empty"><div class="icon">📊</div><div>Summary will appear here</div></div><div id="summary-output" style="display:none"></div></div>
       </div>
     </div>
   </div>
 
-  <!-- Load the converter modules -->
   <script type="module">
     import { parseSQL } from './lib/sql-parser.js';
     import { convertSchema, formatReport } from './lib/converter.js';
-
-    // Expose to global scope for onclick handlers
     window._parseSQL = parseSQL;
     window._convertSchema = convertSchema;
     window._formatReport = formatReport;
   </script>
-
   <script>
+    // ---- State ----
+    let lastResult = null;
+    let lastInput = '';
+
     function convert() {
       const input = document.getElementById('input').value.trim();
       if (!input) { setStatus('No input provided', 'error'); return; }
-
+      lastInput = input;
       const dialect = document.getElementById('dialect').value;
       const btn = document.getElementById('convertBtn');
       btn.disabled = true;
       setStatus('Converting...', '');
-
       try {
         const start = performance.now();
         const parsed = window._parseSQL(input);
-        const { ddl, notes, summary } = window._convertSchema(parsed, dialect);
+        const result = window._convertSchema(parsed, dialect);
+        lastResult = result;
+        lastResult._parsed = parsed;
         const elapsed = (performance.now() - start).toFixed(0);
 
-        // DDL tab
-        document.getElementById('ddl-empty').style.display = 'none';
-        const ddlPre = document.getElementById('ddl-output');
-        ddlPre.style.display = 'block';
-        ddlPre.innerHTML = highlightSQL(ddl);
+        showDDL(result.ddl);
+        showDiff(input, result, parsed);
+        showPlan(result.ddl);
+        showGuide(result, parsed);
+        showReport(result.notes);
+        showSummary(result.summary);
 
-        // Report tab
-        document.getElementById('report-empty').style.display = 'none';
-        const reportDiv = document.getElementById('report-output');
-        reportDiv.style.display = 'block';
-        reportDiv.innerHTML = renderReportTable(notes);
-
-        // Summary tab
-        document.getElementById('summary-empty').style.display = 'none';
-        const summaryDiv = document.getElementById('summary-output');
-        summaryDiv.style.display = 'block';
-        summaryDiv.innerHTML = renderSummary(summary);
-
-        setStatus(`Converted in ${elapsed}ms — ${summary.total_conversions} actions`, 'success');
+        setStatus(`Converted in ${elapsed}ms — ${result.summary.total_conversions} actions`, 'success');
       } catch (err) {
         setStatus(`Error: ${err.message}`, 'error');
         console.error(err);
-      } finally {
-        btn.disabled = false;
+      } finally { btn.disabled = false; }
+    }
+
+    // ---- DDL Tab ----
+    function showDDL(ddl) {
+      hide('ddl-empty'); const el = show('ddl-output');
+      el.innerHTML = highlightSQL(ddl);
+    }
+
+    // ---- Diff Tab ----
+    function showDiff(input, result, parsed) {
+      hide('diff-empty'); const el = show('diff-output');
+      const sections = [];
+
+      // Extensions
+      for (const ext of parsed.extensions) {
+        sections.push(diffSection(ext.name, 'Extension', 'removed',
+          ext.raw, `-- ${ext.name}: handled by DSQL natively or removed`));
+      }
+      // Sequences
+      for (const seq of parsed.sequences) {
+        sections.push(diffSection(seq.name, 'Sequence', 'changed',
+          seq.raw, `CREATE SEQUENCE ${seq.name} CACHE 1;`));
+      }
+      // Tables
+      for (const table of parsed.tables) {
+        const tableName = table.metadata.temporary ? `_tmp_${table.name}` : table.name;
+        // Find the original CREATE TABLE in input
+        const origMatch = input.match(new RegExp(`CREATE\\s+(?:TEMPORARY\\s+)?TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${table.name}\\s*\\([\\s\\S]*?\\);`, 'i'));
+        const origText = origMatch ? origMatch[0] : `CREATE TABLE ${table.name} (...)`;
+        // Find converted in DDL
+        const convMatch = result.ddl.match(new RegExp(`CREATE TABLE ${tableName}\\s*\\([\\s\\S]*?\\);`, 'i'));
+        const convText = convMatch ? convMatch[0] : '';
+        const badge = table.metadata.temporary ? 'changed' : hasChanges(table, parsed) ? 'changed' : 'kept';
+        sections.push(diffSection(tableName, 'Table', badge, origText, convText));
+      }
+      // FK validation functions (new)
+      const fkFuncs = result.ddl.match(/CREATE FUNCTION validate_fk_\w+[\s\S]*?\$\$;/g) || [];
+      for (const f of fkFuncs) {
+        const nameMatch = f.match(/validate_fk_(\w+)/);
+        sections.push(diffSectionNew(nameMatch ? nameMatch[0] : 'FK function', 'FK Validation', f));
+      }
+      // Indexes
+      for (const idx of parsed.indexes) {
+        const origMatch = input.match(new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:CONCURRENTLY\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?${idx.name}[^;]*;`, 'i'));
+        const convMatch = result.ddl.match(new RegExp(`CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+ASYNC\\s+${idx.name}[^;]*;`, 'i'));
+        sections.push(diffSection(idx.name, 'Index', 'changed',
+          origMatch ? origMatch[0] : `CREATE INDEX ${idx.name}`,
+          convMatch ? convMatch[0] : ''));
+      }
+      // Triggers → functions
+      for (const trig of parsed.triggers) {
+        const origMatch = input.match(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?TRIGGER\\s+${trig.name}[\\s\\S]*?;`, 'i'));
+        const funcMatch = result.ddl.match(new RegExp(`-- Replaces trigger '${trig.name}'[\\s\\S]*?\\$\\$;`, 'i'));
+        sections.push(diffSection(trig.name, 'Trigger → SQL Function', 'changed',
+          origMatch ? origMatch[0] : `CREATE TRIGGER ${trig.name}`,
+          funcMatch ? funcMatch[0] : '-- converted to SQL function'));
+      }
+      // Views
+      for (const view of parsed.views) {
+        const origMatch = input.match(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?(?:MATERIALIZED\\s+)?VIEW\\s+${view.name}[\\s\\S]*?;`, 'i'));
+        const convMatch = result.ddl.match(new RegExp(`CREATE VIEW ${view.name}[\\s\\S]*?;`, 'i'));
+        sections.push(diffSection(view.name, view.materialized ? 'Materialized → View' : 'View', view.materialized ? 'changed' : 'kept',
+          origMatch ? origMatch[0] : '', convMatch ? convMatch[0] : ''));
+      }
+      // PL/pgSQL functions
+      for (const func of parsed.functions) {
+        const origMatch = input.match(new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${func.name}[\\s\\S]*?LANGUAGE\\s+\\w+`, 'i'));
+        const convMatch = result.ddl.match(new RegExp(`CREATE FUNCTION (?:apply_)?(?:conditional_)?(?:audit_)?(?:cascade_)?(?:upsert_)?(?:batch_)?(?:cursor_replacement_)?(?:safe_)?${func.name}[\\s\\S]*?\\$\\$;`, 'i'));
+        const badge = func.language === 'sql' ? 'kept' : 'changed';
+        sections.push(diffSection(func.name, `Function (${func.language || 'unknown'})`, badge,
+          origMatch ? origMatch[0] : func.raw,
+          convMatch ? convMatch[0] : '-- transpiled'));
+      }
+
+      el.innerHTML = '<div class="diff-container">' + sections.join('') + '</div>';
+    }
+
+    function diffSection(name, type, badge, left, right) {
+      return `<div class="diff-section">
+        <div class="diff-section-header"><span class="diff-badge ${badge}">${badge.toUpperCase()}</span> <strong>${esc(name)}</strong> <span style="color:var(--text-muted);font-size:10px">${esc(type)}</span></div>
+        <div class="diff-body"><div class="diff-side diff-left">${esc(left)}</div><div class="diff-side diff-right">${esc(right)}</div></div></div>`;
+    }
+    function diffSectionNew(name, type, content) {
+      return `<div class="diff-section">
+        <div class="diff-section-header"><span class="diff-badge added">NEW</span> <strong>${esc(name)}</strong> <span style="color:var(--text-muted);font-size:10px">${esc(type)}</span></div>
+        <div class="diff-full added-bg">${esc(content)}</div></div>`;
+    }
+    function hasChanges(table, parsed) {
+      if (table.metadata.temporary || table.metadata.partition_by || table.metadata.inherits) return true;
+      for (const col of table.columns) {
+        if (['SERIAL','BIGSERIAL','SMALLSERIAL','JSONB','JSON','INET','TSVECTOR'].includes(col.baseType)) return true;
+        if (col.baseType.endsWith('[]')) return true;
+      }
+      if (table.constraints.some(c => c.type === 'FOREIGN KEY')) return true;
+      const enumNames = parsed.enumTypes.map(e => e.name);
+      if (table.columns.some(c => enumNames.includes(c.rawType) || enumNames.includes(c.baseType.toLowerCase()))) return true;
+      return false;
+    }
+
+    // ---- Execution Plan Tab ----
+    function showPlan(ddl) {
+      hide('plan-empty'); const el = show('plan-output');
+      // Split DDL into individual statements
+      const stmts = ddl.split(/;\s*\n/).map(s => s.trim()).filter(s => s && !s.startsWith('--'));
+      // Also grab comment blocks that precede statements
+      const allLines = ddl.split('\n');
+      const steps = [];
+      let commentBlock = [];
+      for (const line of allLines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('--')) { commentBlock.push(trimmed); continue; }
+        if (!trimmed) { commentBlock = []; continue; }
+        // Find the full statement starting from this line
+        const stmtStart = ddl.indexOf(trimmed);
+        if (stmtStart === -1) continue;
+        const stmtEnd = ddl.indexOf(';', stmtStart);
+        if (stmtEnd === -1) continue;
+        const fullStmt = ddl.slice(stmtStart, stmtEnd + 1).trim();
+        if (fullStmt && !steps.some(s => s.sql === fullStmt)) {
+          let type = 'DDL';
+          if (/^CREATE TABLE/i.test(fullStmt)) type = 'CREATE TABLE';
+          else if (/^CREATE SEQUENCE/i.test(fullStmt)) type = 'CREATE SEQUENCE';
+          else if (/^CREATE.*INDEX/i.test(fullStmt)) type = 'CREATE INDEX';
+          else if (/^CREATE FUNCTION/i.test(fullStmt)) type = 'CREATE FUNCTION';
+          else if (/^CREATE VIEW/i.test(fullStmt)) type = 'CREATE VIEW';
+          else if (/^ALTER TABLE/i.test(fullStmt)) type = 'ALTER TABLE';
+          else if (/^INSERT/i.test(fullStmt)) type = 'DML (seed data)';
+          const note = commentBlock.length > 0 ? commentBlock.join(' ').replace(/^--\s*/g, '') : '';
+          steps.push({ sql: fullStmt, type, note });
+        }
+        commentBlock = [];
+      }
+
+      let html = '<div class="plan-container">';
+      html += `<p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">Each step runs in its own transaction. DSQL allows 1 DDL per transaction. Copy and execute sequentially.</p>`;
+      steps.forEach((step, i) => {
+        html += `<div class="plan-step">
+          <div class="plan-step-header">
+            <div><span class="step-num">Step ${i + 1}</span> <span class="step-type">${esc(step.type)}</span></div>
+            <button class="step-copy" onclick="copyStep(${i})">Copy</button>
+          </div>
+          <div class="plan-step-body" id="step-${i}">${highlightSQL(step.sql)}</div>
+        </div>`;
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    function copyStep(i) {
+      const el = document.getElementById('step-' + i);
+      if (el) {
+        navigator.clipboard.writeText(el.textContent);
+        setStatus(`Step ${i + 1} copied`, 'success');
+        setTimeout(() => setStatus('', ''), 1500);
       }
     }
 
+    // ---- Migration Guide Tab ----
+    function showGuide(result, parsed) {
+      hide('guide-empty'); const el = show('guide-output');
+      const s = result.summary;
+      const notes = result.notes;
+      let md = '';
+
+      md += `<div class="guide-container">`;
+      md += `<h2>Migration Guide: PostgreSQL → Aurora DSQL</h2>`;
+      md += `<p>This guide explains the converted schema and what your application needs to handle.</p>`;
+
+      // Schema overview
+      md += `<h2>Schema Overview</h2>`;
+      md += `<p>Your converted schema contains <strong>${s.tables_converted} tables</strong>, <strong>${s.indexes_converted} indexes</strong>, and <strong>${s.sequences_replaced} sequences</strong>.</p>`;
+
+      // Transaction rules
+      md += `<h2>How to Execute</h2>`;
+      md += `<div class="guide-note">Each DDL statement (CREATE TABLE, CREATE INDEX, CREATE FUNCTION) must run in its own transaction. DSQL does not allow multiple DDL statements in one transaction.</div>`;
+      md += `<p>Use the <strong>Execution Plan</strong> tab to copy and run each statement individually.</p>`;
+
+      // Type changes
+      const typeNotes = notes.filter(n => n.action.includes('→ text') || n.action.includes('→ bigint') || n.action.includes('→ integer') || n.action.includes('→ smallint'));
+      if (typeNotes.length > 0) {
+        md += `<h2>Type Changes</h2>`;
+        md += `<p>The following columns had their types changed for DSQL compatibility:</p><ul>`;
+        for (const n of typeNotes) {
+          md += `<li><code>${esc(n.object)}</code>: ${esc(n.action)}. ${esc(n.details)}</li>`;
+        }
+        md += `</ul>`;
+      }
+
+      // ENUM → CHECK
+      if (s.enums_to_checks > 0) {
+        md += `<h2>ENUM Types → CHECK Constraints</h2>`;
+        md += `<p>DSQL does not support custom ENUM types. Each ENUM column now has a CHECK constraint enforcing the same allowed values.</p>`;
+        const enumNotes = notes.filter(n => n.action.includes('ENUM'));
+        md += `<ul>`;
+        for (const n of enumNotes) { md += `<li><code>${esc(n.object)}</code>: ${esc(n.details)}</li>`; }
+        md += `</ul>`;
+      }
+
+      // Foreign keys
+      if (s.fk_validation_functions > 0) {
+        md += `<h2>Foreign Key Enforcement</h2>`;
+        md += `<p>DSQL does not enforce foreign keys at the database level. The converter generated <strong>${s.fk_validation_functions} SQL validation functions</strong> you should call before INSERT/UPDATE:</p>`;
+        const fkNotes = notes.filter(n => n.action.includes('FK →'));
+        md += `<ul>`;
+        for (const n of fkNotes) { md += `<li><code>${esc(n.object)}</code>: Call <code>${esc(n.action.split(' ').pop())}</code> — ${esc(n.details)}</li>`; }
+        md += `</ul>`;
+        md += `<div class="guide-note">Pattern: Before inserting into a child table, call the validation function. Example:<br><code>SELECT validate_fk_posts_author_id(123);</code><br>If it returns false, reject the insert in your application.</div>`;
+      }
+
+      // Sequences
+      if (s.sequences_replaced > 0) {
+        md += `<h2>Sequences</h2>`;
+        md += `<p>DSQL supports sequences natively. Your sequences are preserved with <code>CACHE 1</code> for sequential ordering. For high-throughput workloads, change to <code>CACHE 65536</code>.</p>`;
+      }
+
+      // Triggers
+      if (s.triggers_replaced > 0) {
+        md += `<h2>Trigger Replacements</h2>`;
+        md += `<p>DSQL does not support triggers. The converter generated SQL helper functions you call from your application:</p>`;
+        const trigNotes = notes.filter(n => n.object && n.action.includes('Trigger'));
+        md += `<ul>`;
+        for (const n of trigNotes) { md += `<li><code>${esc(n.object)}</code>: ${esc(n.action)} — ${esc(n.details)}</li>`; }
+        md += `</ul>`;
+      }
+
+      // PL/pgSQL
+      const transpiled = notes.filter(n => n.action.includes('PL/pgSQL') && n.action.includes('SQL function'));
+      const stubbed = notes.filter(n => n.action.includes('stub'));
+      if (transpiled.length > 0 || stubbed.length > 0) {
+        md += `<h2>PL/pgSQL Functions</h2>`;
+        if (transpiled.length > 0) {
+          md += `<p><strong>${transpiled.length} function(s) transpiled</strong> to pure SQL:</p><ul>`;
+          for (const n of transpiled) { md += `<li><code>${esc(n.object)}</code>: ${esc(n.action)}</li>`; }
+          md += `</ul>`;
+        }
+        if (stubbed.length > 0) {
+          md += `<p><strong>${stubbed.length} function(s) need manual rewrite</strong> (contain PERFORM or complex ELSIF):</p><ul>`;
+          for (const n of stubbed) { md += `<li><code>${esc(n.object)}</code>: ${esc(n.details)}</li>`; }
+          md += `</ul>`;
+        }
+      }
+
+      // Views
+      if (s.materialized_views_demoted > 0) {
+        md += `<h2>Materialized Views</h2>`;
+        md += `<p>DSQL does not support materialized views. They have been converted to regular views. If you need caching, implement it in your application layer (Redis, in-memory cache, etc.).</p>`;
+      }
+
+      // Indexes
+      md += `<h2>Indexes</h2>`;
+      md += `<p>All indexes use <code>CREATE INDEX ASYNC</code>. DSQL builds indexes asynchronously — they may not be immediately available after creation. Your application should handle this gracefully.</p>`;
+      const ginNotes = notes.filter(n => n.action.includes('btree'));
+      if (ginNotes.length > 0) {
+        md += `<p>The following indexes were converted from specialized types to btree:</p><ul>`;
+        for (const n of ginNotes) { md += `<li><code>${esc(n.object)}</code>: ${esc(n.action)}</li>`; }
+        md += `</ul>`;
+      }
+
+      // Collation
+      md += `<h2>Collation</h2>`;
+      md += `<p>All text columns use <code>COLLATE "C"</code>. This means string comparisons are byte-order, not locale-aware. If your application depends on locale-specific sorting, handle it in application code.</p>`;
+
+      md += `</div>`;
+      el.innerHTML = md;
+    }
+
+    // ---- Report Tab ----
+    function showReport(notes) {
+      hide('report-empty'); const el = show('report-output');
+      if (notes.length === 0) { el.innerHTML = '<div class="empty-state"><div>No conversion actions needed</div></div>'; return; }
+      let html = '<table class="report-table"><thead><tr><th>Object</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+      for (const n of notes) { html += `<tr><td><code>${esc(n.object)}</code></td><td>${esc(n.action)}</td><td>${esc(n.details)}</td></tr>`; }
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    // ---- Summary Tab ----
+    function showSummary(s) {
+      hide('summary-empty'); const el = show('summary-output');
+      const cards = [
+        { value: s.tables_converted, label: 'Tables' },
+        { value: s.indexes_converted, label: 'Indexes (ASYNC)' },
+        { value: s.sequences_replaced, label: 'Sequences' },
+        { value: s.fk_validation_functions, label: 'FK Functions' },
+        { value: s.enums_to_checks, label: 'ENUM → CHECK' },
+        { value: s.triggers_replaced, label: 'Triggers → SQL' },
+        { value: s.views_converted, label: 'Views' },
+        { value: s.materialized_views_demoted, label: 'Mat. Views → Views' },
+        { value: s.functions_preserved, label: 'SQL Funcs Preserved' },
+        { value: (s.functions_transpiled || 0), label: 'PL/pgSQL Transpiled' },
+        { value: (s.functions_stubbed || 0), label: 'Stubs' },
+        { value: s.total_conversions, label: 'Total Actions' },
+      ];
+      let html = '<div class="summary-grid">';
+      for (const c of cards) { html += `<div class="summary-card"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`; }
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    // ---- Helpers ----
+    function switchTab(el, name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+    function hide(id) { document.getElementById(id).style.display = 'none'; }
+    function show(id) { const el = document.getElementById(id); el.style.display = 'block'; return el; }
+    function setStatus(msg, type) {
+      const el = document.getElementById('status'); el.textContent = msg;
+      el.style.color = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--text-muted)';
+    }
+    function copyOutput() {
+      if (lastResult) { navigator.clipboard.writeText(lastResult.ddl); setStatus('DDL copied', 'success'); setTimeout(() => setStatus('', ''), 1500); }
+    }
+    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function highlightSQL(sql) {
+      return esc(sql)
+        .replace(/(--[^\n]*)/g, '<span class="sql-comment">$1</span>')
+        .replace(/\b(CREATE|TABLE|INDEX|ASYNC|VIEW|FUNCTION|SEQUENCE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|FROM|WHERE|SELECT|EXISTS|PRIMARY|KEY|UNIQUE|CHECK|CONSTRAINT|NOT|NULL|DEFAULT|RETURNS|LANGUAGE|AS|ALTER|ADD|DROP|IF|ON|COLLATE|CACHE|USING|RETURNING)\b/gi, '<span class="sql-keyword">$1</span>')
+        .replace(/\b(bigint|integer|smallint|text|varchar|numeric|boolean|timestamptz|timestamp|date|time|uuid|bytea|real|interval|void)\b/gi, '<span class="sql-type">$1</span>')
+        .replace(/'([^']*)'/g, "'<span class=\"sql-string\">$1</span>'")
+        .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>')
+        .replace(/\b(gen_random_uuid|now|nextval|coalesce|format)\b/gi, '<span class="sql-function">$1</span>');
+    }
+
+    function clearAll() {
+      document.getElementById('input').value = ''; lastResult = null; lastInput = '';
+      ['ddl','diff','plan','guide','report','summary'].forEach(t => {
+        const empty = document.getElementById(t + '-empty'); if (empty) empty.style.display = 'flex';
+        const out = document.getElementById(t + '-output'); if (out) out.style.display = 'none';
+      });
+      setStatus('', '');
+    }
+
     function loadSample() {
-      document.getElementById('input').value = `-- Sample PostgreSQL schema
+      document.getElementById('input').value = SAMPLE_SCHEMA;
+    }
+
+    const SAMPLE_SCHEMA = `-- Sample PostgreSQL schema
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TYPE user_role AS ENUM ('admin', 'editor', 'viewer');
@@ -474,88 +652,6 @@ CREATE MATERIALIZED VIEW active_users AS
 
 CREATE VIEW recent_posts AS
   SELECT * FROM posts WHERE created_at > now() - interval '7 days';`;
-    }
-
-    function clearAll() {
-      document.getElementById('input').value = '';
-      document.getElementById('ddl-empty').style.display = 'flex';
-      document.getElementById('ddl-output').style.display = 'none';
-      document.getElementById('report-empty').style.display = 'flex';
-      document.getElementById('report-output').style.display = 'none';
-      document.getElementById('summary-empty').style.display = 'flex';
-      document.getElementById('summary-output').style.display = 'none';
-      setStatus('', '');
-    }
-
-    function copyOutput() {
-      const ddl = document.getElementById('ddl-output').textContent;
-      if (ddl) {
-        navigator.clipboard.writeText(ddl);
-        setStatus('Copied to clipboard', 'success');
-        setTimeout(() => setStatus('', ''), 2000);
-      }
-    }
-
-    function switchTab(name) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById('tab-' + name).classList.add('active');
-    }
-
-    function setStatus(msg, type) {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.style.color = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--text-muted)';
-    }
-
-    function highlightSQL(sql) {
-      return sql
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/(--[^\n]*)/g, '<span class="sql-comment">$1</span>')
-        .replace(/\b(CREATE|TABLE|INDEX|ASYNC|VIEW|FUNCTION|SEQUENCE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|FROM|WHERE|SELECT|EXISTS|PRIMARY|KEY|UNIQUE|CHECK|CONSTRAINT|NOT|NULL|DEFAULT|RETURNS|LANGUAGE|AS|ALTER|ADD|DROP|IF|ON|COLLATE|CACHE|USING)\b/gi, '<span class="sql-keyword">$1</span>')
-        .replace(/\b(bigint|integer|smallint|text|varchar|numeric|boolean|timestamptz|timestamp|date|time|uuid|bytea|real|interval|void)\b/gi, '<span class="sql-type">$1</span>')
-        .replace(/'([^']*)'/g, "'<span class=\"sql-string\">$1</span>'")
-        .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>')
-        .replace(/\b(gen_random_uuid|now|nextval|coalesce|format)\b/gi, '<span class="sql-function">$1</span>');
-    }
-
-    function renderReportTable(notes) {
-      if (notes.length === 0) return '<div class="empty-state"><div>No conversion actions needed</div></div>';
-      let html = '<table class="report-table"><thead><tr><th>Object</th><th>Action</th><th>Details</th></tr></thead><tbody>';
-      for (const n of notes) {
-        html += `<tr><td><code>${esc(n.object)}</code></td><td>${esc(n.action)}</td><td>${esc(n.details)}</td></tr>`;
-      }
-      html += '</tbody></table>';
-      return html;
-    }
-
-    function renderSummary(s) {
-      const cards = [
-        { value: s.tables_converted, label: 'Tables' },
-        { value: s.indexes_converted, label: 'Indexes (ASYNC)' },
-        { value: s.sequences_replaced, label: 'Sequences' },
-        { value: s.fk_validation_functions, label: 'FK Functions' },
-        { value: s.enums_to_checks, label: 'ENUM → CHECK' },
-        { value: s.triggers_replaced, label: 'Triggers → SQL' },
-        { value: s.views_converted, label: 'Views' },
-        { value: s.materialized_views_demoted, label: 'Mat. Views → Views' },
-        { value: s.functions_preserved, label: 'SQL Funcs Preserved' },
-        { value: (s.functions_transpiled || 0), label: 'PL/pgSQL Transpiled' },
-        { value: (s.functions_stubbed || 0), label: 'Stubs (unconvertible)' },
-        { value: s.total_conversions, label: 'Total Actions' },
-      ];
-      let html = '<div class="summary-grid">';
-      for (const c of cards) {
-        html += `<div class="summary-card"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`;
-      }
-      html += '</div>';
-      return html;
-    }
-
-    function esc(s) {
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
   </script>
 </body>
 </html>
