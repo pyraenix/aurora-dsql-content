@@ -30,14 +30,14 @@ This document lists all Aurora DSQL constraints that the schema converter enforc
 | Constraint | How the Converter Handles It |
 |-----------|------------------------------|
 | Index creation | Always `CREATE INDEX ASYNC` |
-| GIN/GiST/BRIN indexes | Flagged for manual review |
-| Partial indexes | Preserved (WHERE clause kept) |
+| GIN/GiST/BRIN indexes | Converted to btree |
+| Partial indexes | WHERE clause removed (not supported in DSQL) |
 
 ## Data Type Constraints
 
 | Constraint | How the Converter Handles It |
 |-----------|------------------------------|
-| Stored JSON/JSONB | Mapped to TEXT |
+| Stored JSON/JSONB | JSON preserved as json; JSONB mapped to json |
 | Stored arrays | Mapped to TEXT |
 | Collation | All text columns get `COLLATE "C"` |
 | Encoding | UTF-8 (no conversion needed) |

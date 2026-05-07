@@ -87,10 +87,12 @@ Everything. The output is a complete `.sql` file you can run against a DSQL clus
 | CREATE TABLE | DSQL-compatible with proper types, `COLLATE "C"` on text columns |
 | SERIAL / BIGSERIAL | → integer / bigint (DSQL supports sequences natively) |
 | ENUM types | → TEXT column + `CHECK (col IN ('val1', 'val2'))` constraint |
-| JSON / JSONB | → TEXT (use runtime cast: `col::jsonb`) |
-| Arrays (TEXT[], INT[]) | → TEXT (use runtime cast: `col::text[]`) |
+| JSON | → json (DSQL supports json as a stored type natively) |
+| JSONB | → json (DSQL stores JSON as `json` type; use `::jsonb` in queries for binary operators) |
+| Arrays (TEXT[], INT[]) | → TEXT (arrays are runtime-only in DSQL; use `::text[]` in queries) |
 | VARCHAR(N), NUMERIC(P,S) | Precision preserved |
 | GENERATED AS IDENTITY | Auto-increment removed |
+| GENERATED ALWAYS AS (expr) STORED | Preserved (DSQL supports computed columns) |
 | Temporary tables | → Regular tables with `_tmp_` prefix |
 | Partitioned tables | → Flat tables (PARTITION BY removed) |
 | Inherited tables | → Flat tables (INHERITS removed) |
@@ -108,7 +110,8 @@ Everything. The output is a complete `.sql` file you can run against a DSQL clus
 |--------|--------|
 | CREATE INDEX | `CREATE INDEX ASYNC` (DSQL requirement) |
 | GIN / GiST / BRIN indexes | → btree (converted, not just flagged) |
-| Partial indexes (WHERE) | Preserved |
+| Partial indexes (WHERE) | WHERE clause removed (not supported in DSQL). Full index created instead. |
+| INCLUDE columns | Preserved (DSQL supports INCLUDE in CREATE INDEX ASYNC) |
 | Unique indexes | Preserved |
 
 ### Foreign Keys
@@ -242,13 +245,14 @@ npm test
 │  │  • Sequence CACHE │          │                    │                       │
 │  └────────┬──────────┘          └─────────┬──────────┘                       │
 │           │                               │                                 │
-│           │  Fixed SQL text               │  Parsed structure (objects)      │
-│           │                               │                                 │
+│           │  Diagnostics only             │  Parsed structure (objects)      │
+│           │  (what it found)              │                                 │
 │           │                               ▼                                 │
 │           │                    ┌────────────────────────┐                    │
 │           │                    │  Converter Engine       │                    │
 │           │                    │  (converter.js)         │                    │
 │           │                    │                         │                    │
+│           │                    │  • JSONB → json         │                    │
 │           │                    │  • ENUM → CHECK         │                    │
 │           │                    │  • FK → validate_fk()   │                    │
 │           │                    │  • Trigger → SQL func   │                    │
@@ -278,13 +282,12 @@ npm test
 │           │                                │   transpiled funcs, views)      │
 │           ▼                                ▼                                │
 │  ┌─────────────────────────────────────────────────────┐                    │
-│  │                    Merge                             │                    │
+│  │                    Output                            │                    │
 │  │                                                     │                    │
-│  │  dsql-lint fixed DDL (tables, indexes, sequences)   │                    │
-│  │  + Converter additions (FK funcs, CHECKs, views,    │                    │
-│  │    transpiled functions, trigger replacements)       │                    │
-│  │  − Unfixable items removed (dsql-lint left them in, │                    │
-│  │    converter replaced them with better versions)    │                    │
+│  │  Converter DDL (correct JSONB→json, ENUM→CHECK,     │                    │
+│  │    FK validation funcs, transpiled PL/pgSQL,         │                    │
+│  │    trigger replacements, views, sequences)           │                    │
+│  │  dsql-lint diagnostics added to conversion report    │                    │
 │  └──────────────────────┬──────────────────────────────┘                    │
 │                         │                                                   │
 │                         ▼                                                   │
@@ -344,7 +347,7 @@ dsql-lint fixes SQL text but discards context. The converter's parser preserves 
 | PostgreSQL Feature | dsql-lint does | Context lost by dsql-lint | Converter's parser preserves | Converter generates |
 |---|---|---|---|---|
 | SERIAL/BIGSERIAL | ✅ Converts to IDENTITY | None | — | — |
-| JSONB columns | ✅ Converts to TEXT | None | — | — |
+| JSONB columns | ✅ Converts to TEXT | dsql-lint maps to TEXT; this converter maps to json per DSQL docs | — | — |
 | Index without ASYNC | ✅ Adds ASYNC | None | — | — |
 | Sequence without CACHE | ✅ Adds CACHE 1 | None | — | — |
 | USING GIN/GiST | ✅ Removes clause | None | — | — |
@@ -362,7 +365,7 @@ dsql-lint fixes SQL text but discards context. The converter's parser preserves 
 
 ### Two-stage type pipeline
 
-Source types → `NormalizedType` (18 types) → DSQL SQL type strings. Adding a new dialect only requires Stage 1 mappings. Stage 2 is fixed.
+Source types → `NormalizedType` (20 types) → DSQL SQL type strings. Adding a new dialect only requires Stage 1 mappings. Stage 2 is fixed.
 
 ### Adapter registry
 

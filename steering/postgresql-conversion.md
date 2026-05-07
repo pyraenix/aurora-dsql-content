@@ -35,7 +35,7 @@ These types have no DSQL equivalent. They are mapped to TEXT and flagged in the 
 
 | PostgreSQL Type | DSQL Type | Notes |
 |----------------|-----------|-------|
-| JSON, JSONB | text | Use runtime casts: `column::jsonb` |
+| JSON, JSONB | json | DSQL supports `json` as a stored type. JSONB is runtime-only; store as `json`. All JSON operators work. Use `::jsonb` in queries for binary operators. |
 | Arrays (e.g., TEXT[], INT[]) | text | Use runtime casts: `column::text[]` |
 | CIDR, INET, MACADDR | text | Network address types |
 | TSVECTOR, TSQUERY | text | Full-text search types |

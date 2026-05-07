@@ -110,8 +110,9 @@ list_type_mappings({ source_dialect: "postgresql" })
 | CREATE TABLE | DSQL-compatible with proper types, COLLATE "C" on text columns |
 | SERIAL / BIGSERIAL | → integer / bigint (sequences preserved natively) |
 | ENUM types | → TEXT + CHECK constraint enforcing allowed values |
-| JSON / JSONB | → TEXT (use runtime cast: col::jsonb) |
-| Arrays (TEXT[], INT[]) | → TEXT (use runtime cast) |
+| JSON | → json (DSQL supports json as a stored type natively) |
+| JSONB | → json (stored as json; use ::jsonb in queries for binary operators) |
+| Arrays (TEXT[], INT[]) | → TEXT (arrays are runtime-only in DSQL) |
 | VARCHAR(N), NUMERIC(P,S) | Precision preserved |
 | GENERATED AS IDENTITY | Auto-increment removed |
 | Temporary tables | → Regular tables with _tmp_ prefix |
@@ -131,7 +132,8 @@ list_type_mappings({ source_dialect: "postgresql" })
 |--------|--------|
 | CREATE INDEX | CREATE INDEX ASYNC (DSQL requirement) |
 | GIN / GiST / BRIN | → btree (converted, not just flagged) |
-| Partial indexes (WHERE) | Preserved |
+| Partial indexes (WHERE) | WHERE clause removed (not supported in DSQL) |
+| INCLUDE columns | Preserved (DSQL supports INCLUDE) |
 
 ### Foreign Keys
 
