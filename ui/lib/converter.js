@@ -21,7 +21,7 @@
  */
 
 import { NormalizedType, NORMALIZED_TO_DSQL, DSQL_TEXT_TYPES } from "./dsql-constraints.js";
-import { PG_TYPE_MAPPING, PG_FALLBACK_TEXT_TYPES, PG_SERIAL_TYPES } from "./type-mappings/postgresql.js";
+import { PG_TYPE_MAPPING, PG_FALLBACK_TEXT_TYPES, PG_SERIAL_TYPES, PG_JSON_TYPES } from "./type-mappings/postgresql.js";
 import { transpilePlpgsql } from "./plpgsql-transpiler.js";
 
 const ADAPTERS = {
@@ -38,13 +38,15 @@ export function getSupportedDialects() {
 }
 
 const EXTENSION_ALTERNATIVES = {
-  pgcrypto: "gen_random_uuid() is built into DSQL — no extension needed.",
-  "uuid-ossp": "gen_random_uuid() is built into DSQL — no extension needed.",
-  pg_trgm: null,
-  hstore: null,
-  citext: null,
-  postgis: null,
-  pg_stat_statements: "Available in DSQL by default.",
+  pgcrypto: { available: true, note: "gen_random_uuid() is built into DSQL. No extension needed." },
+  "uuid-ossp": { available: true, note: "gen_random_uuid() is built into DSQL. No extension needed." },
+  pg_stat_statements: { available: true, note: "Available in DSQL by default." },
+  pg_trgm: { available: false, note: "Not available in DSQL. For fuzzy text search, use LIKE/ILIKE or implement in application layer." },
+  hstore: { available: false, note: "Not available in DSQL. Use TEXT columns with JSON format instead." },
+  citext: { available: false, note: "Not available in DSQL. Use TEXT with application-layer case folding." },
+  postgis: { available: false, note: "Not available in DSQL. Store coordinates as NUMERIC columns." },
+  btree_gist: { available: false, note: "Not available in DSQL. Standard btree indexes are used automatically." },
+  btree_gin: { available: false, note: "Not available in DSQL. Standard btree indexes are used automatically." },
 };
 
 function resolveSourceType(baseType, rawType, adapter) {
@@ -83,6 +85,14 @@ function columnDDL(col, normalizedType) {
     parts[1] = `${dsqlType}(${col.params})`;
   }
   if (DSQL_TEXT_TYPES.has(normalizedType)) parts.push('COLLATE "C"');
+
+  // GENERATED ALWAYS AS (expr) STORED — computed column (DSQL supports this)
+  if (col.generatedExpr) {
+    parts.push(`GENERATED ALWAYS AS (${col.generatedExpr}) STORED`);
+    // Don't add NOT NULL or DEFAULT for generated columns
+    return parts.join(" ");
+  }
+
   if (!col.nullable) parts.push("NOT NULL");
 
   if (col.defaultExpr && !col.autoIncrement) {
@@ -128,7 +138,12 @@ function generateCreateTable(table, adapter, enumTypes, notes) {
     if (col.autoIncrement && !isSerial) {
       notes.push({ object: `${tableName}.${col.name}`, action: "auto-increment/identity removed", details: "GENERATED AS IDENTITY removed." });
     }
-    if (isFallback && !isSerial) {
+    if (PG_JSON_TYPES && PG_JSON_TYPES.has(col.baseType)) {
+      if (col.baseType === "JSONB") {
+        notes.push({ object: `${tableName}.${col.name}`, action: `JSONB → json`, details: `DSQL stores JSON as 'json' type (not JSONB). All JSON operators still work. Use column::jsonb in queries if needed.` });
+      }
+      // JSON → json needs no note (same type, fully supported)
+    } else if (isFallback && !isSerial) {
       notes.push({ object: `${tableName}.${col.name}`, action: `${col.rawType} → text`, details: `Runtime cast: ${col.name}::${col.rawType.toLowerCase()}` });
     }
     if (unmapped) {
@@ -217,8 +232,16 @@ function generateCreateIndex(idx, notes) {
     notes.push({ object: idx.name, action: `${idx.using.toUpperCase()} → btree index`, details: "Converted to btree. Functionality may differ." });
   }
 
+  if (idx.where) {
+    notes.push({ object: idx.name, action: "Partial index WHERE clause removed", details: `DSQL does not support partial indexes (WHERE clause not in CREATE INDEX ASYNC syntax). Full index created instead — indexes all rows, uses more storage but same query performance. Original filter: WHERE ${idx.where}` });
+  }
+
   let sql = `CREATE ${unique}INDEX ASYNC ${idx.name} ON ${idx.table} (${idx.columns.join(", ")})`;
-  if (idx.where) sql += ` WHERE ${idx.where}`;
+  // INCLUDE columns are supported in DSQL — preserve them
+  if (idx.include && idx.include.length > 0) {
+    sql += ` INCLUDE (${idx.include.join(", ")})`;
+  }
+  // Partial indexes (WHERE) not supported in DSQL — drop the clause
   return `${sql};`;
 }
 
@@ -364,13 +387,18 @@ function generateFunctionConversion(func, triggers, notes) {
 // ---------------------------------------------------------------------------
 
 function generateExtensionNote(ext, notes) {
-  const alt = EXTENSION_ALTERNATIVES[ext.name];
-  if (alt) {
-    notes.push({ object: ext.name, action: "Extension handled", details: alt });
-    return `-- Extension '${ext.name}': ${alt}`;
+  const info = EXTENSION_ALTERNATIVES[ext.name];
+  if (info) {
+    if (info.available) {
+      notes.push({ object: ext.name, action: "Extension not needed", details: info.note });
+      return `-- Extension '${ext.name}': ${info.note}`;
+    } else {
+      notes.push({ object: ext.name, action: "Extension removed (not available in DSQL)", details: info.note });
+      return `-- Extension '${ext.name}' removed. ${info.note}`;
+    }
   }
-  notes.push({ object: ext.name, action: "Extension removed", details: "No DSQL alternative. Check docs." });
-  return `-- Extension '${ext.name}' not available in DSQL.`;
+  notes.push({ object: ext.name, action: "Extension removed (not available in DSQL)", details: "Check DSQL docs for compatibility." });
+  return `-- Extension '${ext.name}' removed. Not available in DSQL. Check docs for alternatives.`;
 }
 
 // ---------------------------------------------------------------------------

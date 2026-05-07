@@ -90,7 +90,8 @@
 
     /* Summary cards */
     .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 14px; }
-    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; transition: border-color 0.15s, transform 0.1s; }
+    .summary-card:hover { border-color: var(--accent); transform: translateY(-1px); }
     .summary-card .value { font-size: 22px; font-weight: 700; color: var(--accent); }
     .summary-card .label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
@@ -201,9 +202,11 @@
   <script type="module">
     import { parseSQL } from './lib/sql-parser.js';
     import { convertSchema, formatReport } from './lib/converter.js';
+    import { SAMPLE_SCHEMA } from './sample-schema.js';
     window._parseSQL = parseSQL;
     window._convertSchema = convertSchema;
     window._formatReport = formatReport;
+    window._SAMPLE_SCHEMA = SAMPLE_SCHEMA;
   </script>
   <script>
     // ---- State ----
@@ -252,14 +255,19 @@
       const sections = [];
 
       // Extensions
+      // Extensions — get the actual converted text from DDL output
       for (const ext of parsed.extensions) {
-        sections.push(diffSection(ext.name, 'Extension', 'removed',
-          ext.raw, `-- ${ext.name}: handled by DSQL natively or removed`));
+        // Find what the converter actually produced for this extension
+        const convLine = result.ddl.split('\n').find(l => l.includes(ext.name) && l.startsWith('--'));
+        const badge = convLine && convLine.includes('not available') || convLine && convLine.includes('removed') ? 'removed' : 'changed';
+        sections.push(diffSection(ext.name, 'Extension', badge,
+          ext.raw, convLine || `-- Extension '${ext.name}' handled`));
       }
-      // Sequences
+      // Sequences — get actual converted text from DDL
       for (const seq of parsed.sequences) {
+        const convMatch = result.ddl.match(new RegExp(`CREATE SEQUENCE ${seq.name}[^;]*;`, 'i'));
         sections.push(diffSection(seq.name, 'Sequence', 'changed',
-          seq.raw, `CREATE SEQUENCE ${seq.name} CACHE 1;`));
+          seq.raw, convMatch ? convMatch[0] : `CREATE SEQUENCE ${seq.name} CACHE 1;`));
       }
       // Tables
       for (const table of parsed.tables) {
@@ -326,14 +334,22 @@
         <div class="diff-full added-bg">${esc(content)}</div></div>`;
     }
     function hasChanges(table, parsed) {
+      // A table has changes if any conversion note references it
+      const tableName = table.metadata.temporary ? `_tmp_${table.name}` : table.name;
       if (table.metadata.temporary || table.metadata.partition_by || table.metadata.inherits) return true;
-      for (const col of table.columns) {
-        if (['SERIAL','BIGSERIAL','SMALLSERIAL','JSONB','JSON','INET','TSVECTOR'].includes(col.baseType)) return true;
-        if (col.baseType.endsWith('[]')) return true;
-      }
       if (table.constraints.some(c => c.type === 'FOREIGN KEY')) return true;
+      // Check if any column uses a type that gets converted
       const enumNames = parsed.enumTypes.map(e => e.name);
-      if (table.columns.some(c => enumNames.includes(c.rawType) || enumNames.includes(c.baseType.toLowerCase()))) return true;
+      for (const col of table.columns) {
+        if (col.baseType.endsWith('[]')) return true;
+        if (enumNames.includes(col.rawType) || enumNames.includes(col.baseType.toLowerCase())) return true;
+        // Check if the type is in our fallback list (would be converted to TEXT)
+        if (col.autoIncrement) return true;
+      }
+      // Check against the converter's notes for this table
+      if (lastResult && lastResult.notes) {
+        return lastResult.notes.some(n => n.object && n.object.startsWith(tableName));
+      }
       return false;
     }
 
@@ -500,6 +516,67 @@
       md += `<h2>Collation</h2>`;
       md += `<p>All text columns use <code>COLLATE "C"</code>. This means string comparisons are byte-order, not locale-aware. If your application depends on locale-specific sorting, handle it in application code.</p>`;
 
+      // Application-Layer Responsibilities (the critical section)
+      md += `<h2>⚠️ Application-Layer Responsibilities</h2>`;
+      md += `<p>The following features were <strong>automatic in PostgreSQL</strong> but require <strong>explicit application code in DSQL</strong>. The logic is preserved as SQL functions — but your app must call them.</p>`;
+
+      const appResponsibilities = [];
+
+      // FK enforcement
+      const fkNotes2 = notes.filter(n => n.action.includes('FK →'));
+      for (const n of fkNotes2) {
+        appResponsibilities.push({
+          was: `Foreign key on ${esc(n.object)} — automatically rejected invalid inserts`,
+          now: `Call <code>${esc(n.action.split(' ').pop())}</code> before INSERT/UPDATE`,
+          when: 'Before every INSERT or UPDATE that sets this column',
+          risk: 'Orphaned rows if validation is skipped',
+        });
+      }
+
+      // Trigger replacements
+      const trigNotes2 = notes.filter(n => n.action.includes('Trigger →') && n.action.includes('SQL function'));
+      for (const n of trigNotes2) {
+        const funcName = n.action.match(/SQL function (\S+)/);
+        appResponsibilities.push({
+          was: `Trigger ${esc(n.object)} — fired automatically on ${esc(n.details.split('.')[0] || 'UPDATE')}`,
+          now: `Call <code>${funcName ? esc(funcName[1]) : 'replacement function'}</code> after the operation`,
+          when: esc(n.details),
+          risk: 'Stale data (e.g., updated_at not set) if function is not called',
+        });
+      }
+
+      // Materialized view caching
+      if (s.materialized_views_demoted > 0) {
+        appResponsibilities.push({
+          was: 'Materialized views cached query results automatically',
+          now: 'Regular views query live data every time. Add application-layer caching if needed.',
+          when: 'When query performance matters for complex aggregations',
+          risk: 'Slower queries on large datasets without caching',
+        });
+      }
+
+      if (appResponsibilities.length > 0) {
+        md += `<table class="report-table"><thead><tr><th>Was (PostgreSQL)</th><th>Now (DSQL)</th><th>When to Call</th><th>Risk if Skipped</th></tr></thead><tbody>`;
+        for (const r of appResponsibilities) {
+          md += `<tr><td>${r.was}</td><td>${r.now}</td><td>${r.when}</td><td>${r.risk}</td></tr>`;
+        }
+        md += `</tbody></table>`;
+      } else {
+        md += `<p>No application-layer changes needed — all features are preserved automatically.</p>`;
+      }
+
+      md += `<div class="guide-note"><strong>Key principle:</strong> In PostgreSQL, the database enforced these rules automatically via triggers and FK constraints. In DSQL, your application code is responsible. The SQL functions are generated and ready — you just need to call them at the right time.</div>`;
+
+      // Converter note (Option B)
+      md += `<h2>About This Conversion</h2>`;
+      md += `<p>This preview is generated by the browser-based converter using regex parsing. For production schema creation, use the <strong>Kiro Power MCP server</strong> which additionally runs <a href="https://github.com/awslabs/aurora-dsql-tools/tree/main/dsql-lint" style="color:var(--accent)">dsql-lint</a> (AWS's official Rust-based SQL parser) for:</p>`;
+      md += `<ul>`;
+      md += `<li>Proper SQL grammar parsing (handles edge cases regex cannot)</li>`;
+      md += `<li>SERIAL → <code>BIGINT GENERATED BY DEFAULT AS IDENTITY (CACHE 1)</code> (DSQL's recommended pattern)</li>`;
+      md += `<li>Final validation pass confirming zero DSQL compatibility errors</li>`;
+      md += `</ul>`;
+      md += `<p>Install the Kiro Power for production use. This UI is for assessment, demos, and learning.</p>`;
+
       md += `</div>`;
       el.innerHTML = md;
     }
@@ -518,22 +595,89 @@
     function showSummary(s) {
       hide('summary-empty'); const el = show('summary-output');
       const cards = [
-        { value: s.tables_converted, label: 'Tables' },
-        { value: s.indexes_converted, label: 'Indexes (ASYNC)' },
-        { value: s.sequences_replaced, label: 'Sequences' },
-        { value: s.fk_validation_functions, label: 'FK Functions' },
-        { value: s.enums_to_checks, label: 'ENUM → CHECK' },
-        { value: s.triggers_replaced, label: 'Triggers → SQL' },
-        { value: s.views_converted, label: 'Views' },
-        { value: s.materialized_views_demoted, label: 'Mat. Views → Views' },
-        { value: s.functions_preserved, label: 'SQL Funcs Preserved' },
-        { value: (s.functions_transpiled || 0), label: 'PL/pgSQL Transpiled' },
-        { value: (s.functions_stubbed || 0), label: 'Stubs' },
-        { value: s.total_conversions, label: 'Total Actions' },
+        { value: s.tables_converted, label: 'Tables', filter: 'table' },
+        { value: s.indexes_converted, label: 'Indexes (ASYNC)', filter: 'index' },
+        { value: s.sequences_replaced, label: 'Sequences', filter: 'sequence' },
+        { value: s.fk_validation_functions, label: 'FK Functions', filter: 'fk' },
+        { value: s.enums_to_checks, label: 'ENUM → CHECK', filter: 'enum' },
+        { value: s.triggers_replaced, label: 'Triggers → SQL', filter: 'trigger' },
+        { value: s.views_converted, label: 'Views', filter: 'view' },
+        { value: s.materialized_views_demoted, label: 'Mat. Views → Views', filter: 'materialized' },
+        { value: s.functions_preserved, label: 'SQL Funcs Preserved', filter: 'preserved' },
+        { value: (s.functions_transpiled || 0), label: 'PL/pgSQL Transpiled', filter: 'transpiled' },
+        { value: (s.functions_stubbed || 0), label: 'Stubs', filter: 'stub' },
+        { value: s.total_conversions, label: 'Total Actions', filter: 'all' },
       ];
       let html = '<div class="summary-grid">';
-      for (const c of cards) { html += `<div class="summary-card"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`; }
+      for (const c of cards) {
+        const clickable = c.value > 0 ? `onclick="showCardDetail('${c.filter}', '${c.label}')" style="cursor:pointer"` : '';
+        const dimmed = c.value === 0 ? ' style="opacity:0.5"' : '';
+        html += `<div class="summary-card" ${clickable}${dimmed}><div class="value">${c.value}</div><div class="label">${c.label}${c.value > 0 ? ' ▸' : ''}</div></div>`;
+      }
       html += '</div>';
+      html += '<div id="card-detail" style="display:none; margin:14px; border:1px solid var(--border); border-radius:6px; overflow:hidden;"></div>';
+      el.innerHTML = html;
+    }
+
+    function showCardDetail(filter, label) {
+      if (!lastResult) return;
+      const notes = lastResult.notes;
+      let filtered;
+
+      switch (filter) {
+        case 'table':
+          filtered = notes.filter(n => n.action.includes('→') && !n.action.includes('FK') && !n.action.includes('Trigger') && !n.action.includes('ENUM') && !n.action.includes('INDEX') && !n.action.includes('Sequence') && !n.action.includes('view'));
+          break;
+        case 'index':
+          filtered = notes.filter(n => n.action.toLowerCase().includes('index') || n.action.includes('btree'));
+          break;
+        case 'sequence':
+          filtered = notes.filter(n => n.action.toLowerCase().includes('sequence'));
+          break;
+        case 'fk':
+          filtered = notes.filter(n => n.action.includes('FK') || n.action.includes('validation function'));
+          break;
+        case 'enum':
+          filtered = notes.filter(n => n.action.includes('ENUM') || n.action.includes('CHECK constraint'));
+          break;
+        case 'trigger':
+          filtered = notes.filter(n => n.action.includes('Trigger') || n.object.includes('trg'));
+          break;
+        case 'view':
+          filtered = notes.filter(n => n.action.toLowerCase().includes('view') && !n.action.includes('Materialized'));
+          break;
+        case 'materialized':
+          filtered = notes.filter(n => n.action.includes('Materialized'));
+          break;
+        case 'preserved':
+          filtered = notes.filter(n => n.action.includes('preserved'));
+          break;
+        case 'transpiled':
+          filtered = notes.filter(n => n.action.includes('PL/pgSQL') && n.action.includes('SQL function'));
+          break;
+        case 'stub':
+          filtered = notes.filter(n => n.action.includes('stub'));
+          break;
+        case 'all':
+          filtered = notes;
+          break;
+        default:
+          filtered = notes;
+      }
+
+      const el = document.getElementById('card-detail');
+      if (filtered.length === 0) {
+        el.style.display = 'none';
+        return;
+      }
+
+      let html = `<div style="padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--accent);">${esc(label)} (${filtered.length} items)</div>`;
+      html += '<table class="report-table"><thead><tr><th>Object</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+      for (const n of filtered) {
+        html += `<tr><td><code>${esc(n.object)}</code></td><td>${esc(n.action)}</td><td>${esc(n.details)}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      el.style.display = 'block';
       el.innerHTML = html;
     }
 
@@ -574,84 +718,9 @@
     }
 
     function loadSample() {
-      document.getElementById('input').value = SAMPLE_SCHEMA;
+      document.getElementById('input').value = window._SAMPLE_SCHEMA;
     }
 
-    const SAMPLE_SCHEMA = `-- Sample PostgreSQL schema
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE TYPE user_role AS ENUM ('admin', 'editor', 'viewer');
-
-CREATE SEQUENCE order_id_seq START 1;
-
-CREATE TABLE users (
-  id BIGSERIAL PRIMARY KEY,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  email TEXT NOT NULL,
-  role user_role DEFAULT 'viewer',
-  profile JSONB DEFAULT '{}',
-  ip_address INET,
-  balance NUMERIC(12,2) DEFAULT 0.00,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE posts (
-  id BIGSERIAL PRIMARY KEY,
-  author_id BIGINT NOT NULL REFERENCES users(id),
-  title VARCHAR(255) NOT NULL,
-  body TEXT,
-  tags TEXT[] DEFAULT '{}',
-  published BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE comments (
-  id BIGSERIAL PRIMARY KEY,
-  post_id BIGINT NOT NULL,
-  author_id BIGINT NOT NULL,
-  body TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  FOREIGN KEY (post_id) REFERENCES posts(id),
-  FOREIGN KEY (author_id) REFERENCES users(id)
-);
-
-CREATE INDEX idx_posts_author ON posts (author_id);
-CREATE INDEX idx_posts_tags ON posts USING gin (tags);
-CREATE UNIQUE INDEX idx_users_email ON users (email);
-
-CREATE OR REPLACE FUNCTION update_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_users_updated
-  BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE OR REPLACE FUNCTION validate_balance()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.balance < 0 THEN
-    RAISE EXCEPTION 'balance cannot be negative';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_check_balance
-  BEFORE INSERT ON users
-  FOR EACH ROW EXECUTE FUNCTION validate_balance();
-
-CREATE MATERIALIZED VIEW active_users AS
-  SELECT * FROM users WHERE is_active = TRUE;
-
-CREATE VIEW recent_posts AS
-  SELECT * FROM posts WHERE created_at > now() - interval '7 days';`;
   </script>
 </body>
 </html>

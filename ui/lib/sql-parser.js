@@ -167,9 +167,17 @@ function parseColumnDef(text) {
 
   const upperRest = rest.toUpperCase();
   const nullable = !upperRest.includes("NOT NULL");
+  // GENERATED AS IDENTITY (auto-increment) — but NOT GENERATED ALWAYS AS (expr) STORED (computed column)
   const autoIncrement = upperRest.includes("AUTO_INCREMENT") ||
-    /\bGENERATED\s+(ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/i.test(rest);
+    (/\bGENERATED\s+(ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/i.test(rest));
   const primaryKey = /\bPRIMARY\s+KEY\b/i.test(rest);
+
+  // GENERATED ALWAYS AS (expression) STORED — computed column
+  let generatedExpr = null;
+  const genMatch = rest.match(/GENERATED\s+ALWAYS\s+AS\s*\((.+?)\)\s*STORED/i);
+  if (genMatch) {
+    generatedExpr = genMatch[1].trim();
+  }
 
   // Inline REFERENCES (foreign key)
   let refTable = null;
@@ -188,7 +196,7 @@ function parseColumnDef(text) {
     defaultExpr = defMatch[1].trim().replace(/,$/, "").trim();
   }
 
-  return { name, rawType, baseType, params, nullable, defaultExpr, autoIncrement, primaryKey, refTable, refColumns, metadata: { original_type: rawType } };
+  return { name, rawType, baseType, params, nullable, defaultExpr, autoIncrement, primaryKey, refTable, refColumns, generatedExpr, metadata: { original_type: rawType } };
 }
 
 function tryParseConstraint(text) {
@@ -292,12 +300,14 @@ export function parseSQL(sql) {
 
     // CREATE INDEX
     if (/^CREATE\s+(UNIQUE\s+)?INDEX\b/i.test(upper)) {
-      const m = stmt.match(/CREATE\s+(?:(UNIQUE)\s+)?INDEX\s+(?:(?:CONCURRENTLY|ASYNC)\s+)?(?:IF\s+NOT\s+EXISTS\s+)?[""`]?(\w+)[""`]?\s+ON\s+(?:[""`]?\w+[""`]?\.)?[""`]?(\w+)[""`]?\s*(?:USING\s+(\w+)\s*)?\(([^)]+)\)(?:\s+WHERE\s+(.+))?/i);
+      const m = stmt.match(/CREATE\s+(?:(UNIQUE)\s+)?INDEX\s+(?:(?:CONCURRENTLY|ASYNC)\s+)?(?:IF\s+NOT\s+EXISTS\s+)?[""`]?(\w+)[""`]?\s+ON\s+(?:[""`]?\w+[""`]?\.)?[""`]?(\w+)[""`]?\s*(?:USING\s+(\w+)\s*)?\(([^)]+)\)(?:\s+INCLUDE\s*\(([^)]+)\))?(?:\s+WHERE\s+(.+))?/i);
       if (m) {
         schema.indexes.push({
           name: unquote(m[2]), table: unquote(m[3]),
           columns: m[5].split(",").map(c => unquote(c.trim().split(/\s+/)[0])),
-          unique: !!m[1], using: m[4] || null, where: m[6] || null,
+          unique: !!m[1], using: m[4] || null,
+          include: m[6] ? m[6].split(",").map(c => unquote(c.trim())) : null,
+          where: m[7] || null,
         });
       } else { schema.unparsed.push(stmt); }
       continue;
@@ -382,7 +392,7 @@ export function parseSQL(sql) {
 
     // CREATE EXTENSION
     if (/^CREATE\s+EXTENSION\b/i.test(upper)) {
-      const m = stmt.match(/CREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?[""`]?(\w+)[""`]?/i);
+      const m = stmt.match(/CREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?[""`]?([\w-]+)[""`]?/i);
       schema.extensions.push({ name: m ? unquote(m[1]) : "unknown", raw: stmt });
       continue;
     }

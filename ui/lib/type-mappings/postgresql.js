@@ -43,6 +43,8 @@ export const PG_TYPE_MAPPING = Object.freeze({
   "DATE": NormalizedType.DATE,
   "TIME": NormalizedType.TIME,
   "TIME WITHOUT TIME ZONE": NormalizedType.TIME,
+  "TIMETZ": NormalizedType.TIMETZ,
+  "TIME WITH TIME ZONE": NormalizedType.TIMETZ,
   "TIMESTAMP": NormalizedType.TIMESTAMP,
   "TIMESTAMP WITHOUT TIME ZONE": NormalizedType.TIMESTAMP,
   "TIMESTAMPTZ": NormalizedType.TIMESTAMPTZ,
@@ -59,11 +61,12 @@ export const PG_TYPE_MAPPING = Object.freeze({
   // UUID
   "UUID": NormalizedType.UUID,
 
-  // JSON (stored as TEXT in DSQL)
-  "JSON": NormalizedType.TEXT,
-  "JSONB": NormalizedType.TEXT,
+  // JSON — DSQL supports json as a stored type (not TEXT!)
+  // JSONB is runtime-only in DSQL, so store as json
+  "JSON": NormalizedType.JSON,
+  "JSONB": NormalizedType.JSON,
 
-  // Fallback types (PG-specific → TEXT)
+  // Fallback types (PG-specific → TEXT, no DSQL stored equivalent)
   "CIDR": NormalizedType.TEXT,
   "INET": NormalizedType.TEXT,
   "MACADDR": NormalizedType.TEXT,
@@ -88,15 +91,17 @@ export const PG_TYPE_MAPPING = Object.freeze({
   "CIRCLE": NormalizedType.TEXT,
 });
 
-/** Types that trigger a compatibility issue when mapped to TEXT. */
+/** Types that trigger a compatibility note when mapped (not errors, just informational). */
 export const PG_FALLBACK_TEXT_TYPES = new Set([
-  "JSON", "JSONB",
   "CIDR", "INET", "MACADDR", "MACADDR8",
   "TSVECTOR", "TSQUERY", "XML", "MONEY",
   "BIT", "VARBIT", "BIT VARYING",
   "OID", "REGCLASS", "REGTYPE", "PG_LSN",
   "POINT", "LINE", "LSEG", "BOX", "PATH", "POLYGON", "CIRCLE",
 ]);
+
+/** Types that map to json (JSONB → json is a downgrade but preserves JSON functionality). */
+export const PG_JSON_TYPES = new Set(["JSON", "JSONB"]);
 
 /** Serial type names. */
 export const PG_SERIAL_TYPES = new Set([

@@ -177,8 +177,11 @@ dsql-schema-converter/
 ├── POWER.md                          # Kiro Power metadata, onboarding, steering mappings
 ├── mcp.json                          # MCP server configuration
 ├── README.md
+├── docs/
+│   └── conversion-matrix.md          # Complete reference: every PG feature → DSQL output
 ├── examples/
-│   └── sample-postgresql.sql         # Realistic PG schema for testing
+│   ├── sample-postgresql.sql         # Quick demo schema
+│   └── full-test-all-features.sql    # Exercises all 43 conversion paths
 ├── ui/                               # Browser-based demo UI
 │   ├── index.html                    # Single-page app (paste SQL → get DSQL)
 │   └── lib/                          # Browser-compatible converter modules
@@ -189,8 +192,9 @@ dsql-schema-converter/
 └── mcp-server/
     ├── package.json
     └── src/
-        ├── index.js                  # MCP server (4 tools)
-        ├── sql-parser.js             # SQL DDL parser (handles dollar-quoting, multi-word types, etc.)
+        ├── index.js                  # MCP server (4 tools) + dsql-lint pipeline
+        ├── dsql-lint.js              # dsql-lint CLI integration
+        ├── sql-parser.js             # SQL DDL parser (structure extraction)
         ├── converter.js              # Conversion engine + adapter registry
         ├── plpgsql-transpiler.js     # PL/pgSQL → SQL transpiler (10 patterns)
         ├── dsql-constraints.js       # NormalizedType enum + Stage 2 mapping
@@ -212,6 +216,150 @@ npm test
 
 ## Architecture
 
+### Pipeline (MCP Server — production path)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DSQL Schema Converter Pipeline                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐                                                           │
+│  │  Input SQL   │  PostgreSQL DDL (.sql file or raw text)                   │
+│  └──────┬───────┘                                                           │
+│         │                                                                   │
+│         ├──────────────────────────────┐                                    │
+│         ▼                              ▼                                    │
+│  ┌──────────────────┐          ┌───────────────────┐                        │
+│  │   dsql-lint       │          │  Converter Parser  │                       │
+│  │   (Rust binary)   │          │  (sql-parser.js)   │                       │
+│  │                   │          │                    │                       │
+│  │  • Proper SQL     │          │  • Extracts        │                       │
+│  │    grammar parser │          │    structure:       │                       │
+│  │  • SERIAL→IDENTITY│          │    tables, columns, │                       │
+│  │  • JSONB→TEXT     │          │    constraints,     │                       │
+│  │  • FK removal     │          │    triggers, funcs, │                       │
+│  │  • Index ASYNC    │          │    enums, views     │                       │
+│  │  • Sequence CACHE │          │                    │                       │
+│  └────────┬──────────┘          └─────────┬──────────┘                       │
+│           │                               │                                 │
+│           │  Fixed SQL text               │  Parsed structure (objects)      │
+│           │                               │                                 │
+│           │                               ▼                                 │
+│           │                    ┌────────────────────────┐                    │
+│           │                    │  Converter Engine       │                    │
+│           │                    │  (converter.js)         │                    │
+│           │                    │                         │                    │
+│           │                    │  • ENUM → CHECK         │                    │
+│           │                    │  • FK → validate_fk()   │                    │
+│           │                    │  • Trigger → SQL func   │                    │
+│           │                    │  • Mat.View → View      │                    │
+│           │                    │  • Array → TEXT         │                    │
+│           │                    │  • Partition → flat     │                    │
+│           │                    │  • Inherits → flat      │                    │
+│           │                    │                         │                    │
+│           │                    │  ┌───────────────────┐  │                    │
+│           │                    │  │ PL/pgSQL Transpiler│  │                    │
+│           │                    │  │ (10 patterns)      │  │                    │
+│           │                    │  │ • SET_COLUMN       │  │                    │
+│           │                    │  │ • VALIDATION→CHECK │  │                    │
+│           │                    │  │ • AUDIT_INSERT     │  │                    │
+│           │                    │  │ • CASCADE_DML      │  │                    │
+│           │                    │  │ • FOR_LOOP→SET     │  │                    │
+│           │                    │  │ • IF_ELSE→CASE     │  │                    │
+│           │                    │  │ • EXCEPTION→ON_CONF│  │                    │
+│           │                    │  │ • DYNAMIC_SQL      │  │                    │
+│           │                    │  │ • CURSOR→SET       │  │                    │
+│           │                    │  │ • NO_DATA→COALESCE │  │                    │
+│           │                    │  └───────────────────┘  │                    │
+│           │                    └───────────┬─────────────┘                    │
+│           │                                │                                │
+│           │  Fixed DDL                     │  Generated additions            │
+│           │  (tables, indexes, sequences)  │  (FK funcs, CHECK, triggers,   │
+│           │                                │   transpiled funcs, views)      │
+│           ▼                                ▼                                │
+│  ┌─────────────────────────────────────────────────────┐                    │
+│  │                    Merge                             │                    │
+│  │                                                     │                    │
+│  │  dsql-lint fixed DDL (tables, indexes, sequences)   │                    │
+│  │  + Converter additions (FK funcs, CHECKs, views,    │                    │
+│  │    transpiled functions, trigger replacements)       │                    │
+│  │  − Unfixable items removed (dsql-lint left them in, │                    │
+│  │    converter replaced them with better versions)    │                    │
+│  └──────────────────────┬──────────────────────────────┘                    │
+│                         │                                                   │
+│                         ▼                                                   │
+│  ┌──────────────────────────────┐                                           │
+│  │  dsql-lint validate           │                                           │
+│  │  (confirms 0 errors)          │                                           │
+│  └──────────────────┬────────────┘                                           │
+│                     │                                                       │
+│                     ▼                                                       │
+│  ┌──────────────────────────────────────────────────────┐                   │
+│  │  Final Output                                         │                   │
+│  │  • DSQL-compatible DDL (runnable)                     │                   │
+│  │  • Conversion report (what changed and why)           │                   │
+│  │  • Execution plan (step-by-step with txn boundaries)  │                   │
+│  │  • Migration guide (app-layer responsibilities)       │                   │
+│  └──────────────────────────────────────────────────────┘                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Browser UI (demo/assessment path)
+
+```
+┌───────────────────────────────────────────────────────┐
+│  Browser UI (no dsql-lint — runs entirely in browser)  │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│  Input SQL ──→ sql-parser.js ──→ converter.js ──→ Output
+│                                    │                  │
+│                                    ├─ DDL tab         │
+│                                    ├─ Diff View tab   │
+│                                    ├─ Execution Plan  │
+│                                    ├─ Migration Guide │
+│                                    ├─ Report tab      │
+│                                    └─ Summary tab     │
+│                                                       │
+│  Note: For production schema creation, use the MCP    │
+│  server which also runs dsql-lint for proper parsing. │
+└───────────────────────────────────────────────────────┘
+```
+
+### Where dsql-lint is used and why
+
+| Component | Uses dsql-lint? | Why |
+|-----------|----------------|-----|
+| MCP server (`convert_schema` tool) | ✅ Yes | Production path. Proper SQL parsing catches edge cases. SERIAL→IDENTITY is DSQL's recommended pattern. Validation confirms clean output. |
+| MCP server (`analyze_compatibility` tool) | ✅ Yes | Shows both dsql-lint diagnostics and the converter's deeper analysis. |
+| Browser UI | ❌ No | Native binary can't run in browser. UI is for demos/assessment, not production schema creation. |
+| SQL parser (`sql-parser.js`) | ❌ No | dsql-lint outputs fixed text, not a parsed structure. The converter needs objects (table.columns, constraint.refTable, function.body) to generate FK functions, CHECK constraints, and transpile PL/pgSQL. |
+| PL/pgSQL transpiler | ❌ No | dsql-lint marks all PL/pgSQL as "unfixable." The transpiler pattern-matches the function body and generates equivalent SQL. |
+| Tests | ❌ No | Tests verify the converter logic independently. dsql-lint is tested separately by AWS. |
+
+### Why both dsql-lint and the converter's parser are needed
+
+dsql-lint fixes SQL text but discards context. The converter's parser preserves context to generate replacements.
+
+| PostgreSQL Feature | dsql-lint does | Context lost by dsql-lint | Converter's parser preserves | Converter generates |
+|---|---|---|---|---|
+| SERIAL/BIGSERIAL | ✅ Converts to IDENTITY | None | — | — |
+| JSONB columns | ✅ Converts to TEXT | None | — | — |
+| Index without ASYNC | ✅ Adds ASYNC | None | — | — |
+| Sequence without CACHE | ✅ Adds CACHE 1 | None | — | — |
+| USING GIN/GiST | ✅ Removes clause | None | — | — |
+| **Foreign key (REFERENCES)** | ❌ Removes it | Which column references which table/column | `refTable: "users", refColumns: ["id"]` | `validate_fk_posts_author_id()` SQL function |
+| **ENUM type** | ❌ Leaves in place | — | `values: ["admin", "editor", "viewer"]` | `CHECK (role IN ('admin','editor','viewer'))` |
+| **PL/pgSQL function** | ❌ Leaves in place | — | `body: "NEW.updated_at = now()..."` | Transpiled SQL function |
+| **Trigger** | ❌ Leaves in place | — | `table: "users", timing: "BEFORE UPDATE", function: "update_ts"` | `set_updated_at_users(p_id)` SQL function |
+| **Materialized view** | ❌ Leaves in place | — | `query: "SELECT * FROM users WHERE..."` | `CREATE VIEW` (regular) |
+| **Array type (TEXT[])** | ❌ Marks unfixable | — | Column identified | Converts to TEXT |
+| **Table inheritance** | Not detected | — | `inherits: "parent"` | Flat table (INHERITS removed) |
+| **Partitioning** | Not detected | — | `partition_by: "RANGE(ts)"` | Flat table (PARTITION BY removed) |
+| **Temporary table** | Not detected | — | `temporary: true` | Regular table with `_tmp_` prefix |
+
+**Key insight:** dsql-lint is a linter — it tells you what's wrong and fixes what it can mechanically. The converter is a migration tool — it understands relationships and generates equivalent functionality in DSQL's supported feature set.
+
 ### Two-stage type pipeline
 
 Source types → `NormalizedType` (18 types) → DSQL SQL type strings. Adding a new dialect only requires Stage 1 mappings. Stage 2 is fixed.
@@ -223,10 +371,6 @@ The `ADAPTERS` object in `converter.js` maps dialect names to type mappings. Add
 ### PL/pgSQL transpiler
 
 Pattern-matching on the function body. Recognizes 10 common patterns and generates equivalent SQL. Falls through to a stub only when the pattern is genuinely impossible in SQL (PERFORM, complex ELSIF chains).
-
-### Regex parser
-
-Not a full SQL grammar — a regex/state-machine that handles dollar-quoted strings, multi-word types (`TIMESTAMP WITH TIME ZONE`), inline REFERENCES, matching parens for PARTITION BY / INHERITS, and ENUM value extraction. Zero native dependencies.
 
 ## Learnings
 
